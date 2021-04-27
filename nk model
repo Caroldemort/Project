@@ -1,0 +1,88 @@
+import numpy as np
+import itertools
+import matplotlib.pyplot as plt
+
+
+N = 8  #this needs to be auto
+i = 100  #any number
+K = 1 #any number
+
+
+#generate random interaction matrix
+
+def int_matrix():
+
+    int_matrix = np.zeros((N, N))
+    for aa1 in np.arange(N):
+        Indexes_1 = list(range(N))
+        Indexes_1.remove(aa1)  # remove self
+        np.random.shuffle(Indexes_1)
+        Indexes_1.append(aa1)
+        Chosen_ones = Indexes_1[-(K+1):]  # this takes the last K+1 indexes
+        for aa2 in Chosen_ones:
+            int_matrix[aa1, aa2] = 1  # we turn on the interactions with K other variables
+    return(int_matrix)
+
+#generate vector ¿Should we use same vector as in correlation?
+def calc_fit(NK_land_, inter_m, Current_position, Power_key_):
+    Fit_vector = np.zeros(N)
+    for ad1 in np.arange(N):
+        Fit_vector[ad1] = NK_land_[np.sum(Current_position * inter_m[ad1]
+                                          * Power_key_), ad1]
+    return(Fit_vector)
+
+def comb_and_values(NK_land_, Power_key_, inter_m):
+    Comb_and_value = np.zeros((2 ** N, N * 2 + 3))  # to capture the results
+    c1 = 0  # starting counter for location
+    for c2 in itertools.product(range(2), repeat=N):
+        Combination1 = np.array(c2)  # taking each combination
+        fit_1 = calc_fit(NK_land_, inter_m, Combination1, Power_key_)
+        print(fit_1)
+        Comb_and_value[c1, :N] = Combination1  # combination and values
+        Comb_and_value[c1, N:2 * N] = fit_1
+        Comb_and_value[c1, 2 * N] = np.mean(fit_1)
+        c1 = c1 + 1
+    for c3 in np.arange(2 ** N):  # now let's see if it is a local peak
+        loc_p = 1  # first, assume it is
+        for c4 in np.arange(N):  # check the local neighbourhood
+            new_comb = Comb_and_value[c3, :N].copy().astype(int)
+            new_comb[c4] = abs(new_comb[c4] - 1)
+            if ((Comb_and_value[c3, 2 * N] <
+                 Comb_and_value[np.sum(new_comb * Power_key_), 2 * N])):
+                loc_p = 0  # if lower than the neighbor = not peak
+        Comb_and_value[c3, 2 * N + 1] = loc_p
+    max_ind = np.argmax(Comb_and_value[:, 2 * N])
+    Comb_and_value[max_ind, 2 * N + 2] = 1
+    return (Comb_and_value)
+
+Power_key = np.power(2, np.arange(N - 1, -1, -1))  # find ay aress in landscpae
+Landscape_data = np.zeros((i, 2 ** N, N * 2 + 3))
+
+for i_1 in np.arange(i):
+    Int_matrix = int_matrix().astype(int)
+    NK_land = np.random.rand(2 ** N, N)  # this is a table of random U(0,1) numbers
+    # Now it is time to survey the topography of our NK landscape
+    Landscape_data[i_1] = comb_and_values(NK_land, Power_key, Int_matrix)
+
+number_of_peaks = np.zeros(i)
+max_values = np.zeros(i)
+min_values = np.zeros(i)
+
+for i_2 in np.arange(i):
+    number_of_peaks[i_2] = np.sum(Landscape_data[i_2, :, 2 * N + 1])
+    max_values[i_2] = np.max(Landscape_data[i_2, :, 2 * N])
+    min_values[i_2] = np.min(Landscape_data[i_2, :, 2 * N])
+
+print('Summary statistics for IMatrix: ' + "matrix" + ' K=' + str(K))
+print('average peaks: ' + str(np.mean(number_of_peaks)))
+print('maximum peaks: ' + str(np.max(number_of_peaks)))
+print('minimum peaks: ' + str(np.min(number_of_peaks)))
+print('average max value: ' + str(np.mean(max_values)))
+print('average min value: ' + str(np.mean(min_values)))
+
+plt.figure(1, facecolor='white', figsize=(8, 6), dpi=150)
+plt.hist(number_of_peaks, bins=20, range=(1, 10), color='pink', edgecolor='black')
+plt.title('Distribution of the number of peaks', size=12)
+plt.xlabel('number of peaks', size=10)
+plt.ylabel('frequency', size=10)
+plt.show()
