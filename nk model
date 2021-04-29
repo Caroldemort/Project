@@ -1,27 +1,59 @@
 import numpy as np
+from scipy.linalg import hadamard
 import itertools
 import matplotlib.pyplot as plt
 
 
 N = 8  #this needs to be auto
 i = 100  #any number
-K = 1 #any number
+K = 2 #any number
+
+def generate_hadamard(dimension):
+    factor = pow(2, dimension)
+    hdm = hadamard(factor)
+    return hdm
 
 
-#generate random interaction matrix
+def generate_triangular(dimension):
+    base = np.array([[1, 0],
+                     [-1, 1]])
+    if dimension == 1:
+        triangular = base
+        return triangular
+    else:
+        triangular = generate_triangular(int(dimension) - 1)
+        zeros = triangular * 0
+        negative = triangular * -1
+        arriba = np.concatenate((triangular, zeros), axis=1)
+        abajo = np.concatenate((negative, triangular), axis=1)
+        triangular = np.concatenate((arriba, abajo), axis=0)
+        return triangular
 
-def int_matrix():
 
-    int_matrix = np.zeros((N, N))
+# using the functions
+dimension = int(2)
+tmatrix = generate_triangular(dimension)
+hmatrix = generate_hadamard(dimension)
+
+#generate both interaction matrix
+
+def int_matrix_triangular():
+
+    int_tmatrix = np.zeros((N, N))
     for aa1 in np.arange(N):
-        Indexes_1 = list(range(N))
-        Indexes_1.remove(aa1)  # remove self
-        np.random.shuffle(Indexes_1)
-        Indexes_1.append(aa1)
-        Chosen_ones = Indexes_1[-(K+1):]  # this takes the last K+1 indexes
+        Chosen_ones = tmatrix[-(K+1):]  # this takes the last K+1 indexes
         for aa2 in Chosen_ones:
-            int_matrix[aa1, aa2] = 1  # we turn on the interactions with K other variables
-    return(int_matrix)
+            int_tmatrix[aa1, aa2] = 1  # we turn on the interactions with K other variables
+    return(int_tmatrix)
+
+def int_matrix_haddamard():
+
+    int_hmatrix = np.zeros((N, N))
+    for aa1 in np.arange(N):
+        Chosen_ones = hmatrix[-(K+1):]  # this takes the last K+1 indexes
+        for aa2 in Chosen_ones:
+            int_hmatrix[aa1, aa2] = 1  # we turn on the interactions with K other variables
+    return(int_hmatrix)
 
 #generate vector ¿Should we use same vector as in correlation?
 def calc_fit(NK_land_, inter_m, Current_position, Power_key_):
@@ -37,7 +69,6 @@ def comb_and_values(NK_land_, Power_key_, inter_m):
     for c2 in itertools.product(range(2), repeat=N):
         Combination1 = np.array(c2)  # taking each combination
         fit_1 = calc_fit(NK_land_, inter_m, Combination1, Power_key_)
-        print(fit_1)
         Comb_and_value[c1, :N] = Combination1  # combination and values
         Comb_and_value[c1, N:2 * N] = fit_1
         Comb_and_value[c1, 2 * N] = np.mean(fit_1)
@@ -56,33 +87,48 @@ def comb_and_values(NK_land_, Power_key_, inter_m):
     return (Comb_and_value)
 
 Power_key = np.power(2, np.arange(N - 1, -1, -1))  # find ay aress in landscpae
-Landscape_data = np.zeros((i, 2 ** N, N * 2 + 3))
+tLandscape_data = np.zeros((i, 2 ** N, N * 2 + 3))
+hLandscape_data = np.zeros((i, 2 ** N, N * 2 + 3))
 
 for i_1 in np.arange(i):
-    Int_matrix = int_matrix().astype(int)
+    Int_tmatrix = int_matrix_triangular().astype(int)
     NK_land = np.random.rand(2 ** N, N)  # this is a table of random U(0,1) numbers
     # Now it is time to survey the topography of our NK landscape
-    Landscape_data[i_1] = comb_and_values(NK_land, Power_key, Int_matrix)
+    tLandscape_data[i_1] = comb_and_values(NK_land, Power_key, Int_tmatrix)
 
-number_of_peaks = np.zeros(i)
-max_values = np.zeros(i)
-min_values = np.zeros(i)
+tnumber_of_peaks = np.zeros(i)
+tmax_values = np.zeros(i)
+tmin_values = np.zeros(i)
+
+for i_1 in np.arange(i):
+    Int_hmatrix = int_matrix_haddamard().astype(int)
+    NK_land = np.random.rand(2 ** N, N)  # this is a table of random U(0,1) numbers
+    # Now it is time to survey the topography of our NK landscape
+    hLandscape_data[i_1] = comb_and_values(NK_land, Power_key, Int_hmatrix)
+
+hnumber_of_peaks = np.zeros(i)
+hmax_values = np.zeros(i)
+hmin_values = np.zeros(i)
+for i_2 in np.arange(i):
+    tnumber_of_peaks[i_2] = np.sum(tLandscape_data[i_2, :, 2 * N + 1])
+    tmax_values[i_2] = np.max(tLandscape_data[i_2, :, 2 * N])
+    tmin_values[i_2] = np.min(tLandscape_data[i_2, :, 2 * N])
 
 for i_2 in np.arange(i):
-    number_of_peaks[i_2] = np.sum(Landscape_data[i_2, :, 2 * N + 1])
-    max_values[i_2] = np.max(Landscape_data[i_2, :, 2 * N])
-    min_values[i_2] = np.min(Landscape_data[i_2, :, 2 * N])
+    hnumber_of_peaks[i_2] = np.sum(hLandscape_data[i_2, :, 2 * N + 1])
+    hmax_values[i_2] = np.max(hLandscape_data[i_2, :, 2 * N])
+    hmin_values[i_2] = np.min(hLandscape_data[i_2, :, 2 * N])
 
-print('Summary statistics for IMatrix: ' + "matrix" + ' K=' + str(K))
-print('average peaks: ' + str(np.mean(number_of_peaks)))
-print('maximum peaks: ' + str(np.max(number_of_peaks)))
-print('minimum peaks: ' + str(np.min(number_of_peaks)))
-print('average max value: ' + str(np.mean(max_values)))
-print('average min value: ' + str(np.mean(min_values)))
+print('Summary statistics for IMatrix: ' + "Triangular" + ' K=' + str(K))
+print('average peaks: ' + str(np.mean(tnumber_of_peaks)))
+print('maximum peaks: ' + str(np.max(tnumber_of_peaks)))
+print('minimum peaks: ' + str(np.min(tnumber_of_peaks)))
+print('average max value: ' + str(np.mean(tmax_values)))
+print('average min value: ' + str(np.mean(tmin_values)))
 
-plt.figure(1, facecolor='white', figsize=(8, 6), dpi=150)
-plt.hist(number_of_peaks, bins=20, range=(1, 10), color='pink', edgecolor='black')
-plt.title('Distribution of the number of peaks', size=12)
-plt.xlabel('number of peaks', size=10)
-plt.ylabel('frequency', size=10)
-plt.show()
+print('Summary statistics for IMatrix: ' + "Haddamard" + ' K=' + str(K))
+print('average peaks: ' + str(np.mean(hnumber_of_peaks)))
+print('maximum peaks: ' + str(np.max(hnumber_of_peaks)))
+print('minimum peaks: ' + str(np.min(hnumber_of_peaks)))
+print('average max value: ' + str(np.mean(hmax_values)))
+print('average min value: ' + str(np.mean(hmin_values)))
